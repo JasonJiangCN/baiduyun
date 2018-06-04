@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name              百度网盘直接下载助手 直链加速版
 // @namespace         https://github.com/syhyz1990/baiduyun
-// @version           1.2.3
+// @version           1.2.4
 // @description       通过迅雷,IDM直接下载百度网盘和百度网盘分享的文件,告别百度VIP,免装客户端,支持批量下载
 // @author            syhyz1990 <syhyz1990@outlook.com>
 // @supportURL        https://github.com/syhyz1990/baiduyun
@@ -76,8 +76,8 @@
         if (http) {
             return link.replace('https://d.pcs.baidu.com', 'http://yqall02.baidupcs.com');
         } else {
-            return link.replace('d.pcs.baidu.com', 'yqall02.baidupcs.com');
-        }
+                return link.replace('d.pcs.baidu.com', 'yqall02.baidupcs.com');
+            }
     }
 
     function slog(c1, c2, c3) {
@@ -91,13 +91,13 @@
         switch (detectPage()) {
             case 'disk':
                 var panHelper = new PanHelper();
-                panHelper.init();
-                return;
+            panHelper.init();
+            return;
             case 'share':
-            case 's':
+                case 's':
                 var panShareHelper = new PanShareHelper();
-                panShareHelper.init();
-                return;
+            panShareHelper.init();
+            return;
             default:
                 return;
         }
@@ -107,7 +107,7 @@
     function PanHelper() {
         var yunData, sign, timestamp, bdstoken, logid, fid_list;
         var fileList = [], selectFileList = [], batchLinkList = [], batchLinkListAll = [], linkList = [],
-            list_grid_status = 'list';
+        list_grid_status = 'list';
         var observer, currentPage, currentPath, currentCategory, dialog, searchKey;
         var panAPIUrl = location.protocol + "//" + location.host + "/api/";
         var restAPIUrl = location.protocol + "//pcs.baidu.com/rest/2.0/pcs/";
@@ -455,9 +455,10 @@
             var $directbutton_menu = $('<span class="menu" style="width:120px;left:79px"></span>');
             var $directbutton_download_button = $('<a id="download-direct" class="g-button-menu" href="javascript:void(0);">下载</a>');
             var $directbutton_link_button = $('<a id="link-direct" class="g-button-menu" href="javascript:void(0);">显示链接</a>');
+            var $directbutton_axel_button = $('<a id="link-direct" class="g-button-menu" href="javascript:void(0);">显示Axel链接</a>');
             var $directbutton_batchhttplink_button = $('<a id="batchhttplink-direct" class="g-button-menu" href="javascript:void(0);">批量链接(HTTP)</a>');
             var $directbutton_batchhttpslink_button = $('<a id="batchhttpslink-direct" class="g-button-menu" href="javascript:void(0);">批量链接(HTTPS)</a>');
-            $directbutton_menu.append($directbutton_download_button).append($directbutton_link_button).append($directbutton_batchhttplink_button).append($directbutton_batchhttpslink_button);
+            $directbutton_menu.append($directbutton_download_button).append($directbutton_link_button).append($directbutton_batchhttplink_button).append($directbutton_batchhttpslink_button).append($directbutton_axel_button);
             $directbutton.append($directbutton_span.append($directbutton_a).append($directbutton_menu));
             $directbutton.hover(function () {
                 $directbutton_span.toggleClass('button-open');
@@ -466,7 +467,7 @@
             $directbutton_link_button.click(linkClick);
             $directbutton_batchhttplink_button.click(batchClick);
             $directbutton_batchhttpslink_button.click(batchClick);
-
+            $directbutton_axel_button.click(axelClick);
             var $apibutton = $('<span class="g-button-menu" style="display:block"></span>');
             var $apibutton_span = $('<span class="g-dropdown-button g-dropdown-button-second" menulevel="2"></span>');
             var $apibutton_a = $('<a class="g-button" href="javascript:void(0);"><span class="g-button-right"><span class="text" style="width:auto">API下载</span></span></a>');
@@ -512,6 +513,139 @@
             $('div.' + wordMap['list-tools']).prepend($dropdownbutton)
         }
 
+        function axelClick(event){
+            slog('选中文件列表：', selectFileList);
+            var id = event.target.id;
+            var linkList, tip;
+
+            if (id.indexOf('direct') != -1) {
+                var downloadType;
+                var downloadLink;
+                if (selectFileList.length === 0) {
+                    alert("获取选中文件失败，请刷新重试！");
+                    return;
+                } else if (selectFileList.length == 1) {
+                    if (selectFileList[0].isdir === 1)
+                        downloadType = 'batch';
+                    else if (selectFileList[0].isdir === 0)
+                        downloadType = 'dlink';
+                } else if (selectFileList.length > 1) {
+                    downloadType = 'batch';
+                }
+                fid_list = getFidList(selectFileList);
+                var result = getDownloadLinkWithPanAPI(downloadType);
+                if (result.errno === 0) {
+                    if (downloadType == 'dlink')
+                        downloadLink = result.dlink[0].dlink;
+                    else if (downloadType == 'batch') {
+                        slog(selectFileList);
+                        downloadLink = result.dlink;
+                        if (selectFileList.length === 1)
+                            downloadLink = downloadLink + '&zipname=' + encodeURIComponent(selectFileList[0].filename) + '.zip';
+                    }
+                    else {
+                        alert("发生错误！");
+                        return;
+                    }
+                } else if (result.errno == -1) {
+                    alert('文件不存在或已被百度和谐，无法下载！');
+                    return;
+                } else if (result.errno == 112) {
+                    alert("页面过期，请刷新重试！");
+                    return;
+                } else {
+                    alert("发生错误！");
+                    return;
+                }
+                var httplink = downloadLink.replace(/^([A-Za-z]+):/, 'http:');
+                //httplink = replaceDownloadLink(httplink);
+                var httpslink = downloadLink.replace(/^([A-Za-z]+):/, 'https:');
+                //httpslink = replaceDownloadLink(httpslink);
+                var filename = '';
+                $.each(selectFileList, function (index, element) {
+                    if (selectFileList.length == 1)
+                        filename = element.filename;
+                    else {
+                        if (index == 0)
+                            filename = element.filename;
+                        else
+                            filename = filename + ',' + element.filename;
+                    }
+                });
+var userAgent = navigator.userAgent;
+            var cookie = document.cookie;
+            var finalCommandHttp = "axel -n 128" +  " --header=\"Cookie: "+cookie+"\" --user-agent=\""+userAgent+"\" "+httplink;
+            var finalCommandHttps = "axel -n 128" +  " --header=\"Cookie: "+cookie+"\" --user-agent=\""+userAgent+"\" "+httpslink;
+
+                linkList = {
+                    filename: filename,
+                    urls: [
+                        {url: finalCommandHttp, rank: 1},
+                        {url: finalCommandHttps, rank: 2}
+                    ]
+                };
+                tip = '显示模拟百度网盘网页获取的链接，可以使用右键迅雷下载，复制到下载工具需要传递cookie，多文件打包下载的链接可以直接复制使用';
+                dialog.open({title: '下载链接', type: 'command', list: linkList, tip: tip});
+            } else {
+                if (selectFileList.length === 0) {
+                    alert("获取选中文件失败，请刷新重试！");
+                    return;
+                } else if (selectFileList.length > 1) {
+                    alert("该方法不支持多文件下载！");
+                    return;
+                } else {
+                    if (selectFileList[0].isdir == 1) {
+                        alert("该方法不支持目录下载！");
+                        return;
+                    }
+                }
+                if (id.indexOf('api') != -1) {
+                    var downloadLink = getDownloadLinkWithRESTAPIBaidu(selectFileList[0].path);
+                    var httplink = downloadLink.replace(/^([A-Za-z]+):/, 'http:');
+                    var httpslink = downloadLink.replace(/^([A-Za-z]+):/, 'https:');
+                    linkList = {
+                        filename: selectFileList[0].filename,
+                        urls: [
+                            {url: httplink, rank: 1},
+                            {url: httpslink, rank: 2}
+                        ]
+                    };
+                    httplink = httplink.replace('250528', '266719');
+                    httpslink = httpslink.replace('250528', '266719');
+                    linkList.urls.push({url: httplink, rank: 3});
+                    linkList.urls.push({url: httpslink, rank: 4});
+                    tip = '显示模拟APP获取的链接(使用百度云ID)，可以使用右键迅雷下载，复制到下载工具需要传递cookie';
+                    dialog.open({title: '下载链接', type: 'link', list: linkList, tip: tip});
+                } else if (id.indexOf('outerlink') != -1) {
+                    var result = getDownloadLinkWithClientAPI(selectFileList[0].path);
+                    if (result.errno == 0) {
+                        linkList = {
+                            filename: selectFileList[0].filename,
+                            urls: result.urls
+                        };
+                    } else if (result.errno == 1) {
+                        alert('文件不存在！');
+                        return;
+                    } else if (result.errno == 2) {
+                        alert('文件不存在或者已被百度和谐，无法下载！');
+                        return;
+                    } else {
+                        alert('发生错误！');
+                        return;
+                    }
+                    tip = '显示模拟百度网盘客户端获取的链接，可以直接复制到下载工具使用，不需要cookie';
+                    dialog.open({
+                        title: '下载链接',
+                        type: 'link',
+                        list: linkList,
+                        tip: tip,
+                        showcopy: true,
+                        showedit: true
+                    });
+                }
+            }
+
+        }
         // 我的网盘 - 下载
         function downloadClick(event) {
             //console.log('downloadClick');
@@ -1094,7 +1228,7 @@
     //分享页面的下载助手
     function PanShareHelper() {
         var yunData, sign, timestamp, bdstoken, channel, clienttype, web, app_id, logid, encrypt, product, uk,
-            primaryid, fid_list, extra, shareid;
+        primaryid, fid_list, extra, shareid;
         var vcode;
         var shareType, buttonTarget, currentPath, list_grid_status, observer, dialog, vcodeDialog;
         var fileList = [], selectFileList = [];
@@ -1149,9 +1283,9 @@
                     obj.isdir = 0;
                 } else {
                     obj.filename = yunData.FILEINFO[0].server_filename,
-                        obj.path = yunData.FILEINFO[0].path,
-                        obj.fs_id = yunData.FILEINFO[0].fs_id,
-                        obj.isdir = yunData.FILEINFO[0].isdir
+                    obj.path = yunData.FILEINFO[0].path,
+                    obj.fs_id = yunData.FILEINFO[0].fs_id,
+                    obj.isdir = yunData.FILEINFO[0].isdir
                 }
                 selectFileList.push(obj);
             } else {
@@ -1753,361 +1887,370 @@
         return page[0].replace(/\//g, '');
     }
 
-    function getCookie(e) {
-        var o, t;
-        var n = document, c = decodeURI;
-        return n.cookie.length > 0 && (o = n.cookie.indexOf(e + "="), -1 != o) ? (o = o + e.length + 1, t = n.cookie.indexOf(";", o), -1 == t && (t = n.cookie.length), c(n.cookie.substring(o, t))) : "";
-    }
+        function getCookie(e) {
+            var o, t;
+            var n = document, c = decodeURI;
+            return n.cookie.length > 0 && (o = n.cookie.indexOf(e + "="), -1 != o) ? (o = o + e.length + 1, t = n.cookie.indexOf(";", o), -1 == t && (t = n.cookie.length), c(n.cookie.substring(o, t))) : "";
+        }
 
-    function getLogID() {
-        var name = "BAIDUID";
-        var u = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/~！@#￥%……&";
-        var d = /[\uD800-\uDBFF][\uDC00-\uDFFFF]|[^\x00-\x7F]/g;
-        var f = String.fromCharCode;
+        function getLogID() {
+            var name = "BAIDUID";
+            var u = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/~！@#￥%……&";
+            var d = /[\uD800-\uDBFF][\uDC00-\uDFFFF]|[^\x00-\x7F]/g;
+            var f = String.fromCharCode;
 
-        function l(e) {
-            if (e.length < 2) {
-                var n = e.charCodeAt(0);
-                return 128 > n ? e : 2048 > n ? f(192 | n >>> 6) + f(128 | 63 & n) : f(224 | n >>> 12 & 15) + f(128 | n >>> 6 & 63) + f(128 | 63 & n);
+            function l(e) {
+                if (e.length < 2) {
+                    var n = e.charCodeAt(0);
+                    return 128 > n ? e : 2048 > n ? f(192 | n >>> 6) + f(128 | 63 & n) : f(224 | n >>> 12 & 15) + f(128 | n >>> 6 & 63) + f(128 | 63 & n);
+                }
+                var n = 65536 + 1024 * (e.charCodeAt(0) - 55296) + (e.charCodeAt(1) - 56320);
+                return f(240 | n >>> 18 & 7) + f(128 | n >>> 12 & 63) + f(128 | n >>> 6 & 63) + f(128 | 63 & n);
             }
-            var n = 65536 + 1024 * (e.charCodeAt(0) - 55296) + (e.charCodeAt(1) - 56320);
-            return f(240 | n >>> 18 & 7) + f(128 | n >>> 12 & 63) + f(128 | n >>> 6 & 63) + f(128 | 63 & n);
+
+            function g(e) {
+                return (e + "" + Math.random()).replace(d, l);
+            }
+
+            function m(e) {
+                var n = [0, 2, 1][e.length % 3];
+                var t = e.charCodeAt(0) << 16 | (e.length > 1 ? e.charCodeAt(1) : 0) << 8 | (e.length > 2 ? e.charCodeAt(2) : 0);
+                var o = [u.charAt(t >>> 18), u.charAt(t >>> 12 & 63), n >= 2 ? "=" : u.charAt(t >>> 6 & 63), n >= 1 ? "=" : u.charAt(63 & t)];
+                return o.join("");
+            }
+
+            function h(e) {
+                return e.replace(/[\s\S]{1,3}/g, m);
+            }
+
+            function p() {
+                return h(g((new Date()).getTime()));
+            }
+
+            function w(e, n) {
+                return n ? p(String(e)).replace(/[+\/]/g, function (e) {
+                    return "+" == e ? "-" : "_";
+                }).replace(/=/g, "") : p(String(e));
+            }
+
+            return w(getCookie(name));
         }
 
-        function g(e) {
-            return (e + "" + Math.random()).replace(d, l);
-        }
+        function Dialog() {
+            var linkList = [];
+            var showParams;
+            var dialog, shadow;
 
-        function m(e) {
-            var n = [0, 2, 1][e.length % 3];
-            var t = e.charCodeAt(0) << 16 | (e.length > 1 ? e.charCodeAt(1) : 0) << 8 | (e.length > 2 ? e.charCodeAt(2) : 0);
-            var o = [u.charAt(t >>> 18), u.charAt(t >>> 12 & 63), n >= 2 ? "=" : u.charAt(t >>> 6 & 63), n >= 1 ? "=" : u.charAt(63 & t)];
-            return o.join("");
-        }
+            function createDialog() {
+                var screenWidth = document.body.clientWidth;
+                var dialogLeft = screenWidth > 800 ? (screenWidth - 800) / 2 : 0;
+                var $dialog_div = $('<div class="dialog" style="width: 800px; top: 0px; bottom: auto; left: ' + dialogLeft + 'px; right: auto; display: hidden; visibility: visible; z-index: 52;"></div>');
+                var $dialog_header = $('<div class="dialog-header"><h3><span class="dialog-title" style="display:inline-block;width:740px;white-space:nowrap;overflow-x:hidden;text-overflow:ellipsis"></span></h3></div>');
+                var $dialog_control = $('<div class="dialog-control"><span class="dialog-icon dialog-close">×</span></div>');
+                var $dialog_body = $('<div class="dialog-body" style="max-height:450px;overflow-y:auto;padding:0 20px;"></div>');
+                var $dialog_tip = $('<div class="dialog-tip" style="padding-left:20px;background-color:#faf2d3;border-top: 1px solid #c4dbfe;"><p></p></div>');
 
-        function h(e) {
-            return e.replace(/[\s\S]{1,3}/g, m);
-        }
+                $dialog_div.append($dialog_header.append($dialog_control)).append($dialog_body);
 
-        function p() {
-            return h(g((new Date()).getTime()));
-        }
-
-        function w(e, n) {
-            return n ? p(String(e)).replace(/[+\/]/g, function (e) {
-                return "+" == e ? "-" : "_";
-            }).replace(/=/g, "") : p(String(e));
-        }
-
-        return w(getCookie(name));
-    }
-
-    function Dialog() {
-        var linkList = [];
-        var showParams;
-        var dialog, shadow;
-
-        function createDialog() {
-            var screenWidth = document.body.clientWidth;
-            var dialogLeft = screenWidth > 800 ? (screenWidth - 800) / 2 : 0;
-            var $dialog_div = $('<div class="dialog" style="width: 800px; top: 0px; bottom: auto; left: ' + dialogLeft + 'px; right: auto; display: hidden; visibility: visible; z-index: 52;"></div>');
-            var $dialog_header = $('<div class="dialog-header"><h3><span class="dialog-title" style="display:inline-block;width:740px;white-space:nowrap;overflow-x:hidden;text-overflow:ellipsis"></span></h3></div>');
-            var $dialog_control = $('<div class="dialog-control"><span class="dialog-icon dialog-close">×</span></div>');
-            var $dialog_body = $('<div class="dialog-body" style="max-height:450px;overflow-y:auto;padding:0 20px;"></div>');
-            var $dialog_tip = $('<div class="dialog-tip" style="padding-left:20px;background-color:#faf2d3;border-top: 1px solid #c4dbfe;"><p></p></div>');
-
-            $dialog_div.append($dialog_header.append($dialog_control)).append($dialog_body);
-
-            //var $dialog_textarea = $('<textarea class="dialog-textarea" style="display:none;width"></textarea>');
-            var $dialog_radio_div = $('<div class="dialog-radio" style="display:none;width:760px;padding-left:20px;padding-right:20px"></div>');
-            var $dialog_radio_multi = $('<input type="radio" name="showmode" checked="checked" value="multi"><span>多行</span>');
-            var $dialog_radio_single = $('<input type="radio" name="showmode" value="single"><span>单行</span>');
-            $dialog_radio_div.append($dialog_radio_multi).append($dialog_radio_single);
-            $dialog_div.append($dialog_radio_div);
-            $('input[type=radio][name=showmode]', $dialog_radio_div).change(function () {
-                var value = this.value;
-                var $textarea = $('div.dialog-body textarea[name=dialog-textarea]', dialog);
-                var content = $textarea.val();
-                if (value == 'multi') {
-                    content = content.replace(/\s+/g, '\n');
-                    $textarea.css('height', '300px');
-                } else if (value == 'single') {
-                    content = content.replace(/\n+/g, ' ');
-                    $textarea.css('height', '');
-                }
-                $textarea.val(content);
-            });
-
-            var $dialog_button = $('<div class="dialog-button" style="display:none"></div>');
-            var $dialog_button_div = $('<div style="display:table;margin:auto"></div>')
-            var $dialog_copy_button = $('<button id="dialog-copy-button" style="display:none">复制</button>');
-            var $dialog_edit_button = $('<button id="dialog-edit-button" style="display:none">编辑</button>');
-            var $dialog_exit_button = $('<button id="dialog-exit-button" style="display:none">退出</button>');
-
-            $dialog_button_div.append($dialog_copy_button).append($dialog_edit_button).append($dialog_exit_button);
-            $dialog_button.append($dialog_button_div);
-            $dialog_div.append($dialog_button);
-
-            $dialog_copy_button.click(function () {
-                var content = '';
-                if (showParams.type == 'batch') {
-                    $.each(linkList, function (index, element) {
-                        if (element.downloadlink == 'error')
-                            return;
-                        if (index == linkList.length - 1)
-                            content = content + element.downloadlink;
-                        else
-                            content = content + element.downloadlink + '\n';
-                    });
-                } else if (showParams.type == 'link') {
-                    $.each(linkList, function (index, element) {
-                        if (element.url == 'error')
-                            return;
-                        if (index == linkList.length - 1)
-                            content = content + element.url;
-                        else
-                            content = content + element.url + '\n';
-                    });
-                }
-                GM_setClipboard(content, 'text');
-                alert('已将链接复制到剪贴板！');
-            });
-
-            $dialog_edit_button.click(function () {
-                var $dialog_textarea = $('div.dialog-body textarea[name=dialog-textarea]', dialog);
-                var $dialog_item = $('div.dialog-body div', dialog);
-                $dialog_item.hide();
-                $dialog_copy_button.hide();
-                $dialog_edit_button.hide();
-                $dialog_textarea.show();
-                $dialog_radio_div.show();
-                $dialog_exit_button.show();
-            });
-
-            $dialog_exit_button.click(function () {
-                var $dialog_textarea = $('div.dialog-body textarea[name=dialog-textarea]', dialog);
-                var $dialog_item = $('div.dialog-body div', dialog);
-                $dialog_textarea.hide();
-                $dialog_radio_div.hide();
-                $dialog_item.show();
-                $dialog_exit_button.hide();
-                $dialog_copy_button.show();
-                $dialog_edit_button.show();
-            });
-
-            $dialog_div.append($dialog_tip);
-            $('body').append($dialog_div);
-            $dialog_div.dialogDrag();
-            $dialog_control.click(dialogControl);
-            return $dialog_div;
-        }
-
-        function createShadow() {
-            var $shadow = $('<div class="dialog-shadow" style="position: fixed; left: 0px; top: 0px; z-index: 50; background: rgb(0, 0, 0) none repeat scroll 0% 0%; opacity: 0.5; width: 100%; height: 100%; display: none;"></div>');
-            $('body').append($shadow);
-            return $shadow;
-        }
-
-        this.open = function (params) {
-            showParams = params;
-            linkList = [];
-            if (params.type == 'link') {
-                linkList = params.list.urls;
-                $('div.dialog-header h3 span.dialog-title', dialog).text(params.title + "：" + params.list.filename);
-                $.each(params.list.urls, function (index, element) {
-                    var $div = $('<div><div style="width:30px;float:left">' + element.rank + ':</div><div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><a href="' + element.url + '">' + element.url + '</a></div></div>');
-                    $('div.dialog-body', dialog).append($div);
+                //var $dialog_textarea = $('<textarea class="dialog-textarea" style="display:none;width"></textarea>');
+                var $dialog_radio_div = $('<div class="dialog-radio" style="display:none;width:760px;padding-left:20px;padding-right:20px"></div>');
+                var $dialog_radio_multi = $('<input type="radio" name="showmode" checked="checked" value="multi"><span>多行</span>');
+                var $dialog_radio_single = $('<input type="radio" name="showmode" value="single"><span>单行</span>');
+                $dialog_radio_div.append($dialog_radio_multi).append($dialog_radio_single);
+                $dialog_div.append($dialog_radio_div);
+                $('input[type=radio][name=showmode]', $dialog_radio_div).change(function () {
+                    var value = this.value;
+                    var $textarea = $('div.dialog-body textarea[name=dialog-textarea]', dialog);
+                    var content = $textarea.val();
+                    if (value == 'multi') {
+                        content = content.replace(/\s+/g, '\n');
+                        $textarea.css('height', '300px');
+                    } else if (value == 'single') {
+                        content = content.replace(/\n+/g, ' ');
+                        $textarea.css('height', '');
+                    }
+                    $textarea.val(content);
                 });
-            } else if (params.type == 'batch') {
-                linkList = params.list;
-                $('div.dialog-header h3 span.dialog-title', dialog).text(params.title);
-                if (params.showall) {
-                    $.each(params.list, function (index, element) {
-                        var $item_div = $('<div class="item-container" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>');
-                        var $item_name = $('<div style="width:100px;float:left;overflow:hidden;text-overflow:ellipsis" title="' + element.filename + '">' + element.filename + '</div>');
-                        var $item_sep = $('<div style="width:12px;float:left"><span>：</span></div>');
-                        var $item_link_div = $('<div class="item-link" style="float:left;width:618px;"></div>');
-                        var $item_first = $('<div class="item-first" style="overflow:hidden;text-overflow:ellipsis"><a href="' + element.downloadlink + '">' + element.downloadlink + '</a></div>');
-                        $item_link_div.append($item_first);
-                        $.each(params.alllist[index].links, function (n, item) {
-                            if (element.downloadlink == item.url)
+
+                var $dialog_button = $('<div class="dialog-button" style="display:none"></div>');
+                var $dialog_button_div = $('<div style="display:table;margin:auto"></div>')
+                var $dialog_copy_button = $('<button id="dialog-copy-button" style="display:none">复制</button>');
+                var $dialog_edit_button = $('<button id="dialog-edit-button" style="display:none">编辑</button>');
+                var $dialog_exit_button = $('<button id="dialog-exit-button" style="display:none">退出</button>');
+
+                $dialog_button_div.append($dialog_copy_button).append($dialog_edit_button).append($dialog_exit_button);
+                $dialog_button.append($dialog_button_div);
+                $dialog_div.append($dialog_button);
+
+                $dialog_copy_button.click(function () {
+                    var content = '';
+                    if (showParams.type == 'batch') {
+                        $.each(linkList, function (index, element) {
+                            if (element.downloadlink == 'error')
                                 return;
-                            var $item = $('<div class="item-ex" style="display:none;overflow:hidden;text-overflow:ellipsis"><a href="' + item.url + '">' + item.url + '</a></div>');
-                            $item_link_div.append($item);
+                            if (index == linkList.length - 1)
+                                content = content + element.downloadlink;
+                            else
+                                content = content + element.downloadlink + '\n';
                         });
-                        var $item_ex = $('<div style="width:15px;float:left;cursor:pointer;text-align:center;font-size:16px"><span>+</span></div>');
-                        $item_div.append($item_name).append($item_sep).append($item_link_div).append($item_ex);
-                        $item_ex.click(function () {
-                            var $parent = $(this).parent();
-                            $parent.toggleClass('showall');
-                            if ($parent.hasClass('showall')) {
-                                $(this).text('-');
-                                $('div.item-link div.item-ex', $parent).show();
-                            } else {
-                                $(this).text('+');
-                                $('div.item-link div.item-ex', $parent).hide();
-                            }
+                    } else if (showParams.type == 'link') {
+                        $.each(linkList, function (index, element) {
+                            if (element.url == 'error')
+                                return;
+                            if (index == linkList.length - 1)
+                                content = content + element.url;
+                            else
+                                content = content + element.url + '\n';
                         });
-                        $('div.dialog-body', dialog).append($item_div);
-                    });
-                } else {
-                    $.each(params.list, function (index, element) {
-                        var $div = $('<div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><div style="width:100px;float:left;overflow:hidden;text-overflow:ellipsis" title="' + element.filename + '">' + element.filename + '</div><span>：</span><a href="' + element.downloadlink + '">' + element.downloadlink + '</a></div>');
+                    }
+                    GM_setClipboard(content, 'text');
+                    alert('已将链接复制到剪贴板！');
+                });
+
+                $dialog_edit_button.click(function () {
+                    var $dialog_textarea = $('div.dialog-body textarea[name=dialog-textarea]', dialog);
+                    var $dialog_item = $('div.dialog-body div', dialog);
+                    $dialog_item.hide();
+                    $dialog_copy_button.hide();
+                    $dialog_edit_button.hide();
+                    $dialog_textarea.show();
+                    $dialog_radio_div.show();
+                    $dialog_exit_button.show();
+                });
+
+                $dialog_exit_button.click(function () {
+                    var $dialog_textarea = $('div.dialog-body textarea[name=dialog-textarea]', dialog);
+                    var $dialog_item = $('div.dialog-body div', dialog);
+                    $dialog_textarea.hide();
+                    $dialog_radio_div.hide();
+                    $dialog_item.show();
+                    $dialog_exit_button.hide();
+                    $dialog_copy_button.show();
+                    $dialog_edit_button.show();
+                });
+
+                $dialog_div.append($dialog_tip);
+                $('body').append($dialog_div);
+                $dialog_div.dialogDrag();
+                $dialog_control.click(dialogControl);
+                return $dialog_div;
+            }
+
+            function createShadow() {
+                var $shadow = $('<div class="dialog-shadow" style="position: fixed; left: 0px; top: 0px; z-index: 50; background: rgb(0, 0, 0) none repeat scroll 0% 0%; opacity: 0.5; width: 100%; height: 100%; display: none;"></div>');
+                $('body').append($shadow);
+                return $shadow;
+            }
+
+            this.open = function (params) {
+                showParams = params;
+                linkList = [];
+                if (params.type == 'command'){
+                    linkList = params.list.urls;
+                    $('div.dialog-header h3 span.dialog-title', dialog).text(params.title + "：" + params.list.filename);
+                    $.each(params.list.urls, function (index, element) {
+                        var $div = $('<div><div style="width:30px;float:left">' + element.rank + ':</div><div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><p>' + element.url + '</p></div><input type="button" value="复制到剪贴板" onclick="GM_setClipBoard("'+element.url+',\'text\');"></input></div>');
                         $('div.dialog-body', dialog).append($div);
                     });
+
                 }
-            }
-
-            if (params.tip) {
-                $('div.dialog-tip p', dialog).text(params.tip);
-            }
-
-            if (params.showcopy) {
-                $('div.dialog-button', dialog).show();
-                $('div.dialog-button button#dialog-copy-button', dialog).show();
-            }
-            if (params.showedit) {
-                $('div.dialog-button', dialog).show();
-                $('div.dialog-button button#dialog-edit-button', dialog).show();
-                var $dialog_textarea = $('<textarea name="dialog-textarea" style="display:none;resize:none;width:758px;height:300px;white-space:pre;word-wrap:normal;overflow-x:scroll"></textarea>');
-                var content = '';
-                if (showParams.type == 'batch') {
-                    $.each(linkList, function (index, element) {
-                        if (element.downloadlink == 'error')
-                            return;
-                        if (index == linkList.length - 1)
-                            content = content + element.downloadlink;
-                        else
-                            content = content + element.downloadlink + '\n';
+                else if (params.type == 'link') {
+                    linkList = params.list.urls;
+                    $('div.dialog-header h3 span.dialog-title', dialog).text(params.title + "：" + params.list.filename);
+                    $.each(params.list.urls, function (index, element) {
+                        var $div = $('<div><div style="width:30px;float:left">' + element.rank + ':</div><div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><a href="' + element.url + '">' + element.url + '</a></div></div>');
+                        $('div.dialog-body', dialog).append($div);
                     });
-                } else if (showParams.type == 'link') {
-                    $.each(linkList, function (index, element) {
-                        if (element.url == 'error')
-                            return;
-                        if (index == linkList.length - 1)
-                            content = content + element.url;
-                        else
-                            content = content + element.url + '\n';
-                    });
+                } else if (params.type == 'batch') {
+                    linkList = params.list;
+                    $('div.dialog-header h3 span.dialog-title', dialog).text(params.title);
+                    if (params.showall) {
+                        $.each(params.list, function (index, element) {
+                            var $item_div = $('<div class="item-container" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>');
+                            var $item_name = $('<div style="width:100px;float:left;overflow:hidden;text-overflow:ellipsis" title="' + element.filename + '">' + element.filename + '</div>');
+                            var $item_sep = $('<div style="width:12px;float:left"><span>：</span></div>');
+                            var $item_link_div = $('<div class="item-link" style="float:left;width:618px;"></div>');
+                            var $item_first = $('<div class="item-first" style="overflow:hidden;text-overflow:ellipsis"><a href="' + element.downloadlink + '">' + element.downloadlink + '</a></div>');
+                            $item_link_div.append($item_first);
+                            $.each(params.alllist[index].links, function (n, item) {
+                                if (element.downloadlink == item.url)
+                                    return;
+                                var $item = $('<div class="item-ex" style="display:none;overflow:hidden;text-overflow:ellipsis"><a href="' + item.url + '">' + item.url + '</a></div>');
+                                $item_link_div.append($item);
+                            });
+                            var $item_ex = $('<div style="width:15px;float:left;cursor:pointer;text-align:center;font-size:16px"><span>+</span></div>');
+                            $item_div.append($item_name).append($item_sep).append($item_link_div).append($item_ex);
+                            $item_ex.click(function () {
+                                var $parent = $(this).parent();
+                                $parent.toggleClass('showall');
+                                if ($parent.hasClass('showall')) {
+                                    $(this).text('-');
+                                    $('div.item-link div.item-ex', $parent).show();
+                                } else {
+                                    $(this).text('+');
+                                    $('div.item-link div.item-ex', $parent).hide();
+                                }
+                            });
+                            $('div.dialog-body', dialog).append($item_div);
+                        });
+                    } else {
+                        $.each(params.list, function (index, element) {
+                            var $div = $('<div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><div style="width:100px;float:left;overflow:hidden;text-overflow:ellipsis" title="' + element.filename + '">' + element.filename + '</div><span>：</span><a href="' + element.downloadlink + '">' + element.downloadlink + '</a></div>');
+                            $('div.dialog-body', dialog).append($div);
+                        });
+                    }
                 }
-                $dialog_textarea.val(content);
-                $('div.dialog-body', dialog).append($dialog_textarea);
+
+                if (params.tip) {
+                    $('div.dialog-tip p', dialog).text(params.tip);
+                }
+
+                if (params.showcopy) {
+                    $('div.dialog-button', dialog).show();
+                    $('div.dialog-button button#dialog-copy-button', dialog).show();
+                }
+                if (params.showedit) {
+                    $('div.dialog-button', dialog).show();
+                    $('div.dialog-button button#dialog-edit-button', dialog).show();
+                    var $dialog_textarea = $('<textarea name="dialog-textarea" style="display:none;resize:none;width:758px;height:300px;white-space:pre;word-wrap:normal;overflow-x:scroll"></textarea>');
+                    var content = '';
+                    if (showParams.type == 'batch') {
+                        $.each(linkList, function (index, element) {
+                            if (element.downloadlink == 'error')
+                                return;
+                            if (index == linkList.length - 1)
+                                content = content + element.downloadlink;
+                            else
+                                content = content + element.downloadlink + '\n';
+                        });
+                    } else if (showParams.type == 'link') {
+                        $.each(linkList, function (index, element) {
+                            if (element.url == 'error')
+                                return;
+                            if (index == linkList.length - 1)
+                                content = content + element.url;
+                            else
+                                content = content + element.url + '\n';
+                        });
+                    }
+                    $dialog_textarea.val(content);
+                    $('div.dialog-body', dialog).append($dialog_textarea);
+                }
+
+                shadow.show();
+                dialog.show();
             }
 
-            shadow.show();
-            dialog.show();
+            this.close = function () {
+                dialogControl();
+            }
+
+            function dialogControl() {
+                $('div.dialog-body', dialog).children().remove();
+                $('div.dialog-header h3 span.dialog-title', dialog).text('');
+                $('div.dialog-tip p', dialog).text('');
+                $('div.dialog-button', dialog).hide();
+                $('div.dialog-radio input[type=radio][name=showmode][value=multi]', dialog).prop('checked', true);
+                $('div.dialog-radio', dialog).hide();
+                $('div.dialog-button button#dialog-copy-button', dialog).hide();
+                $('div.dialog-button button#dialog-edit-button', dialog).hide();
+                $('div.dialog-button button#dialog-exit-button', dialog).hide();
+                dialog.hide();
+                shadow.hide();
+            }
+
+            dialog = createDialog();
+            shadow = createShadow();
         }
 
-        this.close = function () {
-            dialogControl();
-        }
+        function VCodeDialog(refreshVCode, confirmClick) {
+            var dialog, shadow;
 
-        function dialogControl() {
-            $('div.dialog-body', dialog).children().remove();
-            $('div.dialog-header h3 span.dialog-title', dialog).text('');
-            $('div.dialog-tip p', dialog).text('');
-            $('div.dialog-button', dialog).hide();
-            $('div.dialog-radio input[type=radio][name=showmode][value=multi]', dialog).prop('checked', true);
-            $('div.dialog-radio', dialog).hide();
-            $('div.dialog-button button#dialog-copy-button', dialog).hide();
-            $('div.dialog-button button#dialog-edit-button', dialog).hide();
-            $('div.dialog-button button#dialog-exit-button', dialog).hide();
-            dialog.hide();
-            shadow.hide();
-        }
+            function createDialog() {
+                var screenWidth = document.body.clientWidth;
+                var dialogLeft = screenWidth > 520 ? (screenWidth - 520) / 2 : 0;
+                var $dialog_div = $('<div class="dialog" id="dialog-vcode" style="width:520px;top:0px;bottom:auto;left:' + dialogLeft + 'px;right:auto;display:none;visibility:visible;z-index:52"></div>');
+                var $dialog_header = $('<div class="dialog-header"><h3><span class="dialog-header-title"><em class="select-text">提示</em></span></h3></div>');
+                var $dialog_control = $('<div class="dialog-control"><span class="dialog-icon dialog-close icon icon-close"><span class="sicon">x</span></span></div>');
+                var $dialog_body = $('<div class="dialog-body"></div>');
+                var $dialog_body_div = $('<div style="text-align:center;padding:22px"></div>');
+                var $dialog_body_download_verify = $('<div class="download-verify" style="margin-top:10px;padding:0 28px;text-align:left;font-size:12px;"></div>');
+                var $dialog_verify_body = $('<div class="verify-body">请输入验证码：</div>');
+                var $dialog_input = $('<input id="dialog-input" type="text" style="padding:3px;width:85px;height:23px;border:1px solid #c6c6c6;background-color:white;vertical-align:middle;" class="input-code" maxlength="4">');
+                var $dialog_img = $('<img id="dialog-img" class="img-code" style="margin-left:10px;vertical-align:middle;" alt="点击换一张" src="" width="100" height="30">');
+                var $dialog_refresh = $('<a href="javascript:void(0)" style="text-decoration:underline;" class="underline">换一张</a>');
+                var $dialog_err = $('<div id="dialog-err" style="padding-left:84px;height:18px;color:#d80000" class="verify-error"></div>');
+                var $dialog_footer = $('<div class="dialog-footer g-clearfix"></div>');
+                var $dialog_confirm_button = $('<a class="g-button g-button-blue" data-button-id="" data-button-index href="javascript:void(0)" style="padding-left:36px"><span class="g-button-right" style="padding-right:36px;"><span class="text" style="width:auto;">确定</span></span></a>');
+                var $dialog_cancel_button = $('<a class="g-button" data-button-id="" data-button-index href="javascript:void(0);" style="padding-left: 36px;"><span class="g-button-right" style="padding-right: 36px;"><span class="text" style="width: auto;">取消</span></span></a>');
 
-        dialog = createDialog();
-        shadow = createShadow();
-    }
+                $dialog_header.append($dialog_control);
+                $dialog_verify_body.append($dialog_input).append($dialog_img).append($dialog_refresh);
+                $dialog_body_download_verify.append($dialog_verify_body).append($dialog_err);
+                $dialog_body_div.append($dialog_body_download_verify);
+                $dialog_body.append($dialog_body_div);
+                $dialog_footer.append($dialog_confirm_button).append($dialog_cancel_button);
+                $dialog_div.append($dialog_header).append($dialog_body).append($dialog_footer);
+                $('body').append($dialog_div);
 
-    function VCodeDialog(refreshVCode, confirmClick) {
-        var dialog, shadow;
+                $dialog_div.dialogDrag();
 
-        function createDialog() {
-            var screenWidth = document.body.clientWidth;
-            var dialogLeft = screenWidth > 520 ? (screenWidth - 520) / 2 : 0;
-            var $dialog_div = $('<div class="dialog" id="dialog-vcode" style="width:520px;top:0px;bottom:auto;left:' + dialogLeft + 'px;right:auto;display:none;visibility:visible;z-index:52"></div>');
-            var $dialog_header = $('<div class="dialog-header"><h3><span class="dialog-header-title"><em class="select-text">提示</em></span></h3></div>');
-            var $dialog_control = $('<div class="dialog-control"><span class="dialog-icon dialog-close icon icon-close"><span class="sicon">x</span></span></div>');
-            var $dialog_body = $('<div class="dialog-body"></div>');
-            var $dialog_body_div = $('<div style="text-align:center;padding:22px"></div>');
-            var $dialog_body_download_verify = $('<div class="download-verify" style="margin-top:10px;padding:0 28px;text-align:left;font-size:12px;"></div>');
-            var $dialog_verify_body = $('<div class="verify-body">请输入验证码：</div>');
-            var $dialog_input = $('<input id="dialog-input" type="text" style="padding:3px;width:85px;height:23px;border:1px solid #c6c6c6;background-color:white;vertical-align:middle;" class="input-code" maxlength="4">');
-            var $dialog_img = $('<img id="dialog-img" class="img-code" style="margin-left:10px;vertical-align:middle;" alt="点击换一张" src="" width="100" height="30">');
-            var $dialog_refresh = $('<a href="javascript:void(0)" style="text-decoration:underline;" class="underline">换一张</a>');
-            var $dialog_err = $('<div id="dialog-err" style="padding-left:84px;height:18px;color:#d80000" class="verify-error"></div>');
-            var $dialog_footer = $('<div class="dialog-footer g-clearfix"></div>');
-            var $dialog_confirm_button = $('<a class="g-button g-button-blue" data-button-id="" data-button-index href="javascript:void(0)" style="padding-left:36px"><span class="g-button-right" style="padding-right:36px;"><span class="text" style="width:auto;">确定</span></span></a>');
-            var $dialog_cancel_button = $('<a class="g-button" data-button-id="" data-button-index href="javascript:void(0);" style="padding-left: 36px;"><span class="g-button-right" style="padding-right: 36px;"><span class="text" style="width: auto;">取消</span></span></a>');
+                $dialog_control.click(dialogControl);
+                $dialog_img.click(refreshVCode);
+                $dialog_refresh.click(refreshVCode);
+                $dialog_input.keypress(function (event) {
+                    if (event.which == 13)
+                        confirmClick();
+                });
+                $dialog_confirm_button.click(confirmClick);
+                $dialog_cancel_button.click(dialogControl);
+                $dialog_input.click(function () {
+                    $('#dialog-err').text('');
+                });
+                return $dialog_div;
+            }
 
-            $dialog_header.append($dialog_control);
-            $dialog_verify_body.append($dialog_input).append($dialog_img).append($dialog_refresh);
-            $dialog_body_download_verify.append($dialog_verify_body).append($dialog_err);
-            $dialog_body_div.append($dialog_body_download_verify);
-            $dialog_body.append($dialog_body_div);
-            $dialog_footer.append($dialog_confirm_button).append($dialog_cancel_button);
-            $dialog_div.append($dialog_header).append($dialog_body).append($dialog_footer);
-            $('body').append($dialog_div);
+            this.open = function (vcode) {
+                if (vcode)
+                    $('#dialog-img').attr('src', vcode.img);
+                dialog.show();
+                shadow.show();
+            }
+            this.close = function () {
+                dialogControl();
+            }
+            dialog = createDialog();
+            shadow = $('div.dialog-shadow');
 
-            $dialog_div.dialogDrag();
-
-            $dialog_control.click(dialogControl);
-            $dialog_img.click(refreshVCode);
-            $dialog_refresh.click(refreshVCode);
-            $dialog_input.keypress(function (event) {
-                if (event.which == 13)
-                    confirmClick();
-            });
-            $dialog_confirm_button.click(confirmClick);
-            $dialog_cancel_button.click(dialogControl);
-            $dialog_input.click(function () {
+            function dialogControl() {
+                $('#dialog-img', dialog).attr('src', '');
                 $('#dialog-err').text('');
+                dialog.hide();
+                shadow.hide();
+            }
+        }
+
+        $.fn.dialogDrag = function () {
+            var mouseInitX, mouseInitY, dialogInitX, dialogInitY;
+            var screenWidth = document.body.clientWidth;
+            var $parent = this;
+            $('div.dialog-header', this).mousedown(function (event) {
+                mouseInitX = parseInt(event.pageX);
+                mouseInitY = parseInt(event.pageY);
+                dialogInitX = parseInt($parent.css('left').replace('px', ''));
+                dialogInitY = parseInt($parent.css('top').replace('px', ''));
+                $(this).mousemove(function (event) {
+                    var tempX = dialogInitX + parseInt(event.pageX) - mouseInitX;
+                    var tempY = dialogInitY + parseInt(event.pageY) - mouseInitY;
+                    var width = parseInt($parent.css('width').replace('px', ''));
+                    tempX = tempX < 0 ? 0 : tempX > screenWidth - width ? screenWidth - width : tempX;
+                    tempY = tempY < 0 ? 0 : tempY;
+                    $parent.css('left', tempX + 'px').css('top', tempY + 'px');
+                });
             });
-            return $dialog_div;
-        }
-
-        this.open = function (vcode) {
-            if (vcode)
-                $('#dialog-img').attr('src', vcode.img);
-            dialog.show();
-            shadow.show();
-        }
-        this.close = function () {
-            dialogControl();
-        }
-        dialog = createDialog();
-        shadow = $('div.dialog-shadow');
-
-        function dialogControl() {
-            $('#dialog-img', dialog).attr('src', '');
-            $('#dialog-err').text('');
-            dialog.hide();
-            shadow.hide();
-        }
-    }
-
-    $.fn.dialogDrag = function () {
-        var mouseInitX, mouseInitY, dialogInitX, dialogInitY;
-        var screenWidth = document.body.clientWidth;
-        var $parent = this;
-        $('div.dialog-header', this).mousedown(function (event) {
-            mouseInitX = parseInt(event.pageX);
-            mouseInitY = parseInt(event.pageY);
-            dialogInitX = parseInt($parent.css('left').replace('px', ''));
-            dialogInitY = parseInt($parent.css('top').replace('px', ''));
-            $(this).mousemove(function (event) {
-                var tempX = dialogInitX + parseInt(event.pageX) - mouseInitX;
-                var tempY = dialogInitY + parseInt(event.pageY) - mouseInitY;
-                var width = parseInt($parent.css('width').replace('px', ''));
-                tempX = tempX < 0 ? 0 : tempX > screenWidth - width ? screenWidth - width : tempX;
-                tempY = tempY < 0 ? 0 : tempY;
-                $parent.css('left', tempX + 'px').css('top', tempY + 'px');
+            $('div.dialog-header', this).mouseup(function (event) {
+                $(this).unbind('mousemove');
             });
-        });
-        $('div.dialog-header', this).mouseup(function (event) {
-            $(this).unbind('mousemove');
-        });
-    }
+        }
 
 })();
